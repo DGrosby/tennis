@@ -61,10 +61,11 @@ function handleResponse(e) {
 
 /**
  * Handles API requests from the GitHub Pages frontend.
- * Returns JSON data for the dashboard, stats, and history pages.
+ * Supports JSONP (via callback parameter) to avoid CORS issues.
  */
 function handleApi(e) {
   const endpoint = e.parameter.endpoint;
+  const callback = e.parameter.callback;
   let data;
 
   if (endpoint === 'current') {
@@ -77,9 +78,16 @@ function handleApi(e) {
     data = { error: 'Unknown endpoint' };
   }
 
-  const output = ContentService.createTextOutput(JSON.stringify(data))
+  const json = JSON.stringify(data);
+
+  // JSONP: wrap in callback function to avoid CORS
+  if (callback) {
+    return ContentService.createTextOutput(callback + '(' + json + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+
+  return ContentService.createTextOutput(json)
     .setMimeType(ContentService.MimeType.JSON);
-  return output;
 }
 
 /**
@@ -182,23 +190,34 @@ function getHistoryData() {
 }
 
 /**
+ * Returns a JSONP or JSON response.
+ */
+function jsonpResponse(data, callback) {
+  const json = JSON.stringify(data);
+  if (callback) {
+    return ContentService.createTextOutput(callback + '(' + json + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService.createTextOutput(json)
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
  * Handles admin actions (lineup adjustments, retrigger email).
  */
 function handleAdmin(e) {
   const key = e.parameter.key;
+  const callback = e.parameter.callback;
   if (key !== CONFIG.ADMIN_KEY) {
-    return ContentService.createTextOutput(JSON.stringify({ error: 'Unauthorized' }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonpResponse({ error: 'Unauthorized' }, callback);
   }
 
   const adminAction = e.parameter.adminAction;
 
   if (adminAction === 'getData') {
-    // Return current week data for the admin panel
     const data = getCurrentWeekData();
     data.all_players = getActivePlayers();
-    return ContentService.createTextOutput(JSON.stringify(data))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonpResponse(data, callback);
   }
 
   if (adminAction === 'togglePlayer') {
@@ -213,8 +232,7 @@ function handleAdmin(e) {
     return handleRetrigger(e);
   }
 
-  return ContentService.createTextOutput(JSON.stringify({ error: 'Unknown admin action' }))
-    .setMimeType(ContentService.MimeType.JSON);
+  return jsonpResponse({ error: 'Unknown admin action' }, callback);
 }
 
 /**
@@ -223,6 +241,7 @@ function handleAdmin(e) {
 function handleTogglePlayer(e) {
   const weekId = e.parameter.week || getCurrentWeekId();
   const playerId = e.parameter.player;
+  const callback = e.parameter.callback;
 
   const weekSheet = getSheet(CONFIG.SHEETS.WEEKS);
   const data = weekSheet.getDataRange().getValues();
@@ -234,33 +253,24 @@ function handleTogglePlayer(e) {
       let benched = data[i][6] ? String(data[i][6]).split(',').filter(x => x) : [];
 
       if (playing.includes(playerId)) {
-        // Move to benched
         playing = playing.filter(id => id !== playerId);
         benched.push(playerId);
       } else if (benched.includes(playerId)) {
-        // Move to playing
         benched = benched.filter(id => id !== playerId);
         playing.push(playerId);
       }
 
-      // Reassign courts
       const courts = assignCourts(playing);
 
       weekSheet.getRange(row, 6).setValue(playing.join(','));
       weekSheet.getRange(row, 7).setValue(benched.join(','));
       weekSheet.getRange(row, 8).setValue(JSON.stringify(courts));
 
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        playing: playing,
-        benched: benched,
-        courts: courts
-      })).setMimeType(ContentService.MimeType.JSON);
+      return jsonpResponse({ success: true, playing: playing, benched: benched, courts: courts }, callback);
     }
   }
 
-  return ContentService.createTextOutput(JSON.stringify({ error: 'Week not found' }))
-    .setMimeType(ContentService.MimeType.JSON);
+  return jsonpResponse({ error: 'Week not found' }, callback);
 }
 
 /**
@@ -270,11 +280,10 @@ function handleAddSub(e) {
   const weekId = e.parameter.week || getCurrentWeekId();
   const subName = e.parameter.subName;
   const subPlayerId = e.parameter.subPlayerId || ('sub_' + Date.now());
+  const callback = e.parameter.callback;
 
-  // Record as "in" response
   recordResponse(weekId, subPlayerId, 'in');
 
-  // Add to playing list
   const weekSheet = getSheet(CONFIG.SHEETS.WEEKS);
   const data = weekSheet.getDataRange().getValues();
 
@@ -289,17 +298,11 @@ function handleAddSub(e) {
       weekSheet.getRange(row, 6).setValue(playing.join(','));
       weekSheet.getRange(row, 8).setValue(JSON.stringify(courts));
 
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        sub_id: subPlayerId,
-        playing: playing,
-        courts: courts
-      })).setMimeType(ContentService.MimeType.JSON);
+      return jsonpResponse({ success: true, sub_id: subPlayerId, playing: playing, courts: courts }, callback);
     }
   }
 
-  return ContentService.createTextOutput(JSON.stringify({ error: 'Week not found' }))
-    .setMimeType(ContentService.MimeType.JSON);
+  return jsonpResponse({ error: 'Week not found' }, callback);
 }
 
 /**
@@ -311,14 +314,13 @@ function handleRetrigger(e) {
   const friday = getNextFriday(new Date());
   const players = getActivePlayers();
   const playerMap = {};
+  const callback = e.parameter.callback;
   players.forEach(p => { playerMap[p.player_id] = p; });
 
   if (!weekData) {
-    return ContentService.createTextOutput(JSON.stringify({ error: 'Week not found' }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonpResponse({ error: 'Week not found' }, callback);
   }
 
-  // Build lineup object for the email function
   const lineup = {
     playing: weekData.playing_players.map(id => playerMap[id] || { player_id: id, name: id }),
     benched: weekData.benched_players.map(id => playerMap[id] || { player_id: id, name: id }),
@@ -328,6 +330,5 @@ function handleRetrigger(e) {
 
   sendLineupEmail(friday, lineup);
 
-  return ContentService.createTextOutput(JSON.stringify({ success: true, message: 'Lineup email re-sent' }))
-    .setMimeType(ContentService.MimeType.JSON);
+  return jsonpResponse({ success: true, message: 'Lineup email re-sent' }, callback);
 }
