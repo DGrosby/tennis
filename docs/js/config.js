@@ -4,7 +4,7 @@
  */
 const APP_CONFIG = {
   // The deployed Google Apps Script web app URL
-  API_URL: 'YOUR_WEB_APP_URL_HERE',
+  API_URL: 'https://script.google.com/macros/s/AKfycbxgQTZzpVLxrWpd3jP_W4hIsq61ztlARkRPpltC1TqsCPpY3GttGaayRWJWsKYbN00LAA/exec',
 
   // Site title
   SITE_TITLE: 'Friday Tennis',
