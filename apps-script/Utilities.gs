@@ -85,11 +85,39 @@ function getActivePlayers() {
 }
 
 /**
- * Gets a single player by ID.
+ * Gets a name map of ALL players (active and inactive, including subs).
+ * Returns { player_id: name, ... }
+ */
+function getAllPlayerNames() {
+  const sheet = getSheet(CONFIG.SHEETS.PLAYERS);
+  const data = sheet.getDataRange().getValues();
+  const names = {};
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0]) names[data[i][0]] = data[i][1];
+  }
+  return names;
+}
+
+/**
+ * Gets a single player by ID (searches all players, not just active).
  */
 function getPlayerById(playerId) {
-  const players = getActivePlayers();
-  return players.find(p => p.player_id === playerId) || null;
+  const sheet = getSheet(CONFIG.SHEETS.PLAYERS);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === playerId) {
+      return {
+        player_id: data[i][0],
+        name: data[i][1],
+        email: data[i][2],
+        active: data[i][3] === true || data[i][3] === 'TRUE',
+        total_plays: data[i][4] || 0,
+        total_benched: data[i][5] || 0,
+        benched_last_week: data[i][6] === true || data[i][6] === 'TRUE'
+      };
+    }
+  }
+  return null;
 }
 
 /**

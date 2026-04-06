@@ -102,9 +102,12 @@ function getCurrentWeekData() {
   const playerMap = {};
   players.forEach(p => { playerMap[p.player_id] = p; });
 
+  // Use all player names (including subs) for display
+  const allNames = getAllPlayerNames();
+
   const responseList = responses.map(r => ({
     player_id: r.player_id,
-    name: playerMap[r.player_id] ? playerMap[r.player_id].name : r.player_id,
+    name: allNames[r.player_id] || r.player_id,
     response: r.response,
     responded_at: r.responded_at
   }));
@@ -124,7 +127,7 @@ function getCurrentWeekData() {
     playing: weekData ? weekData.playing_players : [],
     benched: weekData ? weekData.benched_players : [],
     courts: weekData ? weekData.court_assignments : {},
-    player_names: playerMap
+    player_names: allNames
   };
 }
 
@@ -178,14 +181,9 @@ function getHistoryData() {
     }
   }
 
-  // Get player names
-  const players = getActivePlayers();
-  const playerMap = {};
-  players.forEach(p => { playerMap[p.player_id] = p.name; });
-
   return {
     weeks: Object.values(weeks).sort((a, b) => b.week_id.localeCompare(a.week_id)),
-    player_names: playerMap
+    player_names: getAllPlayerNames()
   };
 }
 
@@ -281,6 +279,10 @@ function handleAddSub(e) {
   const subName = e.parameter.subName;
   const subPlayerId = e.parameter.subPlayerId || ('sub_' + Date.now());
   const callback = e.parameter.callback;
+
+  // Add substitute to Players sheet (inactive so they don't get weekly emails)
+  const playersSheet = getSheet(CONFIG.SHEETS.PLAYERS);
+  playersSheet.appendRow([subPlayerId, subName, '', false, 0, 0, false, new Date()]);
 
   recordResponse(weekId, subPlayerId, 'in');
 

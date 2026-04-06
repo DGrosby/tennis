@@ -37,7 +37,7 @@ function sendWeeklyAvailabilityEmail() {
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; color: #333;">
-  <h2 style="color: #2d5016; margin-bottom: 5px;">🎾 Tennis This Friday</h2>
+  <h2 style="color: #2d5016; margin-bottom: 5px;">Tennis This Friday</h2>
   <p style="font-size: 18px; margin-top: 5px;">${dateLong}</p>
 
   <p style="font-size: 16px;">Hey ${player.name.split(' ')[0]}, are you in this week?</p>
@@ -77,8 +77,13 @@ function sendLineupEmail(friday, lineup) {
   const dateStr = formatDate(friday);
   const dateLong = formatDateLong(friday);
   const players = getActivePlayers();
+  const allNames = getAllPlayerNames();
   const playerMap = {};
   players.forEach(p => { playerMap[p.player_id] = p; });
+  // For subs not in active players, create a minimal entry so email names work
+  Object.keys(allNames).forEach(id => {
+    if (!playerMap[id]) playerMap[id] = { player_id: id, name: allNames[id] };
+  });
 
   const subject = 'Tennis Lineup for Friday (' + dateStr + ')';
 
@@ -126,7 +131,7 @@ function sendLineupEmail(friday, lineup) {
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; color: #333;">
-  <h2 style="color: #2d5016; margin-bottom: 5px;">🎾 Tennis Lineup</h2>
+  <h2 style="color: #2d5016; margin-bottom: 5px;">Tennis Lineup</h2>
   <p style="font-size: 18px; margin-top: 5px;">${dateLong}</p>
 
   <p style="font-size: 16px;"><strong>${lineup.playing.length} players</strong> on the courts this week:</p>
@@ -165,7 +170,7 @@ function sendCancellationEmail(friday) {
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; color: #333;">
-  <h2 style="color: #cb2431; margin-bottom: 5px;">🎾 Tennis Cancelled</h2>
+  <h2 style="color: #cb2431; margin-bottom: 5px;">Tennis Cancelled</h2>
   <p style="font-size: 18px; margin-top: 5px;">${dateLong}</p>
   <p>Not enough players responded this week. Tennis is cancelled for Friday.</p>
   <p style="font-size: 14px; color: #586069;">See you next week!</p>
@@ -213,7 +218,7 @@ function sendReminderEmail() {
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; color: #333;">
-  <h2 style="color: #e36209; margin-bottom: 5px;">🎾 Reminder: Tennis This Friday</h2>
+  <h2 style="color: #e36209; margin-bottom: 5px;">Reminder: Tennis This Friday</h2>
   <p style="font-size: 16px;">Hey ${player.name.split(' ')[0]}, we haven't heard from you yet. Are you in?</p>
 
   <div style="text-align: center; margin: 30px 0;">
