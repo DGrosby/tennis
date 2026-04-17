@@ -28,7 +28,7 @@ const CONFIG = {
   MAX_PLAYERS: 8,
 
   // Valid playing counts (must fill courts evenly)
-  VALID_COUNTS: [2, 4, 6, 8],
+  VALID_COUNTS: [4, 6, 8],
 
   // Organizer email — receives alerts for edge cases
   ORGANIZER_EMAIL: 'YOUR_EMAIL_HERE',

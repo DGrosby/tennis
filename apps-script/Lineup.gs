@@ -13,17 +13,25 @@ function generateLineup(weekId) {
   const playerMap = {};
   players.forEach(p => { playerMap[p.player_id] = p; });
 
-  // Get players who said "in"
+  // Admin pre-bench list: stored in benched_players column on unfinalized Weeks row
+  const existingWeek = getWeekData(weekId);
+  const preBenchIds = new Set();
+  if (existingWeek && !existingWeek.lineup_finalized) {
+    existingWeek.benched_players.forEach(id => { if (id) preBenchIds.add(id); });
+  }
+
+  // Get players who said "in" and are not pre-benched by admin
   const availableIds = responses
     .filter(r => r.response === 'in')
-    .map(r => r.player_id);
+    .map(r => r.player_id)
+    .filter(id => !preBenchIds.has(id));
 
   const available = availableIds
     .map(id => playerMap[id])
     .filter(p => p != null);
 
-  // Cancel if fewer than 2
-  if (available.length < 2) {
+  // Cancel if fewer than 4 (no singles-only sessions)
+  if (available.length < 4) {
     return { playing: [], benched: [], courts: {}, cancelled: true };
   }
 
@@ -41,6 +49,14 @@ function generateLineup(weekId) {
     const benchedIds = new Set(benched.map(p => p.player_id));
     playing = available.filter(p => !benchedIds.has(p.player_id));
   }
+
+  // Merge admin pre-benched into the final benched list
+  preBenchIds.forEach(id => {
+    const p = playerMap[id];
+    if (p && !benched.some(b => b.player_id === id)) {
+      benched.push(p);
+    }
+  });
 
   // Assign courts
   const courts = assignCourts(playing.map(p => p.player_id));

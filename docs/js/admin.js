@@ -99,14 +99,39 @@ function renderAdmin() {
 
   // Responses
   html += '<h2>Responses</h2>';
-  const inResponses = (data.responses || []).filter(r => r.response === 'in');
+  const preBenchIds = !data.finalized ? new Set(data.benched || []) : new Set();
+  const allIn = (data.responses || []).filter(r => r.response === 'in');
+  const inResponses = allIn.filter(r => !preBenchIds.has(r.player_id));
+  const preBenched = allIn.filter(r => preBenchIds.has(r.player_id));
   const outResponses = (data.responses || []).filter(r => r.response === 'out');
 
   if (inResponses.length > 0) {
     html += '<div class="card card-green"><strong>In (' + inResponses.length + ')</strong>';
-    html += '<ul class="player-list">';
-    inResponses.forEach(r => { html += '<li>' + r.name + '</li>'; });
-    html += '</ul></div>';
+    if (!data.finalized) {
+      inResponses.forEach(r => {
+        html += '<div class="admin-player">';
+        html += '<span>' + r.name + '</span>';
+        html += '<button class="btn btn-red" style="padding:6px 12px;font-size:13px;min-height:36px;" onclick="togglePlayer(\'' + r.player_id + '\')">Bench</button>';
+        html += '</div>';
+      });
+    } else {
+      html += '<ul class="player-list">';
+      inResponses.forEach(r => { html += '<li>' + r.name + '</li>'; });
+      html += '</ul>';
+    }
+    html += '</div>';
+  }
+
+  if (preBenched.length > 0) {
+    html += '<div class="card card-yellow"><strong>Benched by Admin (' + preBenched.length + ')</strong>';
+    html += '<p style="font-size:13px;color:var(--gray);margin:4px 0 8px;">Will be excluded when the lineup is finalized.</p>';
+    preBenched.forEach(r => {
+      html += '<div class="admin-player">';
+      html += '<span>' + r.name + '</span>';
+      html += '<button class="btn btn-green" style="padding:6px 12px;font-size:13px;min-height:36px;" onclick="togglePlayer(\'' + r.player_id + '\')">Restore</button>';
+      html += '</div>';
+    });
+    html += '</div>';
   }
 
   if (outResponses.length > 0) {

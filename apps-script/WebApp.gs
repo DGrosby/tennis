@@ -234,7 +234,11 @@ function handleAdmin(e) {
 }
 
 /**
- * Toggles a player between playing and benched in the current week.
+ * Toggles a player's bench status.
+ * - Post-finalize: swaps between playing and benched on the Weeks row.
+ * - Pre-finalize: toggles the player in/out of the admin pre-bench list (stored
+ *   in the benched_players column of the unfinalized Weeks row). generateLineup
+ *   excludes pre-benched IDs from the available pool at finalization.
  */
 function handleTogglePlayer(e) {
   const weekId = e.parameter.week || getCurrentWeekId();
@@ -247,28 +251,44 @@ function handleTogglePlayer(e) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === weekId) {
       const row = i + 1;
-      let playing = data[i][5] ? String(data[i][5]).split(',').filter(x => x) : [];
-      let benched = data[i][6] ? String(data[i][6]).split(',').filter(x => x) : [];
+      const finalized = data[i][3] === true || data[i][3] === 'TRUE';
 
-      if (playing.includes(playerId)) {
-        playing = playing.filter(id => id !== playerId);
-        benched.push(playerId);
-      } else if (benched.includes(playerId)) {
-        benched = benched.filter(id => id !== playerId);
-        playing.push(playerId);
+      if (finalized) {
+        let playing = data[i][5] ? String(data[i][5]).split(',').filter(x => x) : [];
+        let benched = data[i][6] ? String(data[i][6]).split(',').filter(x => x) : [];
+
+        if (playing.includes(playerId)) {
+          playing = playing.filter(id => id !== playerId);
+          benched.push(playerId);
+        } else if (benched.includes(playerId)) {
+          benched = benched.filter(id => id !== playerId);
+          playing.push(playerId);
+        }
+
+        const courts = assignCourts(playing);
+
+        weekSheet.getRange(row, 6).setValue(playing.join(','));
+        weekSheet.getRange(row, 7).setValue(benched.join(','));
+        weekSheet.getRange(row, 8).setValue(JSON.stringify(courts));
+
+        return jsonpResponse({ success: true, playing: playing, benched: benched, courts: courts }, callback);
       }
 
-      const courts = assignCourts(playing);
-
-      weekSheet.getRange(row, 6).setValue(playing.join(','));
-      weekSheet.getRange(row, 7).setValue(benched.join(','));
-      weekSheet.getRange(row, 8).setValue(JSON.stringify(courts));
-
-      return jsonpResponse({ success: true, playing: playing, benched: benched, courts: courts }, callback);
+      let preBench = data[i][6] ? String(data[i][6]).split(',').filter(x => x) : [];
+      if (preBench.includes(playerId)) {
+        preBench = preBench.filter(id => id !== playerId);
+      } else {
+        preBench.push(playerId);
+      }
+      weekSheet.getRange(row, 7).setValue(preBench.join(','));
+      return jsonpResponse({ success: true, benched: preBench }, callback);
     }
   }
 
-  return jsonpResponse({ error: 'Week not found' }, callback);
+  // No Weeks row yet — create one with this player on the pre-bench list
+  const friday = getNextFriday(new Date());
+  weekSheet.appendRow([weekId, friday, '', false, '', '', playerId, '']);
+  return jsonpResponse({ success: true, benched: [playerId] }, callback);
 }
 
 /**
